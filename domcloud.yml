@@ -1,0 +1,21 @@
+# Ruta Negra Manizales — Deploy en DOM Cloud
+# Receta: SPA construida con Vite/React. El servidor clona el repo, instala,
+# builda y sirve la carpeta `dist/` con NGINX redirigiendo todo a index.html.
+
+# --- PEGA ESTO en tu sitio de DomCloud: Setup -> Deploy -> Add a deployment task ---
+title: Ruta Negra Manizales
+
+features:
+  # Node LTS para poder correr npm install / npm run build
+  - node lts
+
+nginx:
+  # La carpeta generada por `npm run build` (vite build -> dist/)
+  root: public_html/dist
+  locations:
+    - match: /
+      try_files: $uri $uri/ /index.html   # SPA: todo a index.html salvo assets
+
+commands:
+  - npm install
+  - npm run build
