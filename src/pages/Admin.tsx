@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { addEvent, fetchEvents, deleteEvent, updateEvent, setEventCancelled, type EventData } from "@/lib/events-store";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Trash2, Users, Pencil, Ban, RotateCcw, Plus, Calendar, Clock, MapPin, Tag, FileText, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Trash2, Users, Pencil, Ban, RotateCcw, Plus, Calendar, Clock, MapPin, Tag, FileText, CheckCircle2, XCircle, Phone, BarChart3, TrendingUp } from "lucide-react";
 import { formatTime12 } from "@/lib/format-time";
 import { isEventPast } from "@/lib/event-status";
 import logoAsset from "@/assets/ruta-negra-logo.png";
@@ -124,6 +124,27 @@ const Admin = () => {
   const cancelledRoutes = events.filter((e) => e.cancelled && !isEventPast(e.date)).length;
   const totalAttendees = events.reduce((sum, e) => sum + e.attendees.length, 0);
 
+  // Statistics: attendance by phone (who goes to the most meetings)
+  const phoneMap: Record<string, { name: string; phone: string; count: number; routes: string[] }> = {};
+  events.forEach((event) => {
+    event.attendees.forEach((a) => {
+      const phone = (a.phone || "").trim();
+      const key = phone || a.name; // fallback to name if no phone
+      if (!phoneMap[key]) {
+        phoneMap[key] = {
+          name: a.name,
+          phone,
+          count: 0,
+          routes: [],
+        };
+      }
+      phoneMap[key].count += 1;
+      phoneMap[key].routes.push(event.title);
+    });
+  });
+  const statsByPhone = Object.values(phoneMap).sort((a, b) => b.count - a.count);
+  const uniqueAssistants = Object.keys(phoneMap).length;
+
   return (
     <main className="min-h-screen bg-background text-foreground pt-24 pb-12">
       <Navbar />
@@ -162,6 +183,10 @@ const Admin = () => {
           <div className="glassmorphism p-5 rounded-xl flex flex-col justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Asistentes Totales</span>
             <span className="text-3xl font-heading text-accent mt-2">{totalAttendees}</span>
+          </div>
+          <div className="glassmorphism p-5 rounded-xl flex flex-col justify-between">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Asistentes Únicos</span>
+            <span className="text-3xl font-heading text-primary mt-2">{uniqueAssistants}</span>
           </div>
           <div className="glassmorphism p-5 rounded-xl flex flex-col justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Canceladas</span>
@@ -312,9 +337,17 @@ const Admin = () => {
                                   {event.attendees.map((a, i) => (
                                     <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/5">
                                       <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                                        {a.charAt(0).toUpperCase()}
+                                        {a.name.charAt(0).toUpperCase()}
                                       </div>
-                                      <span className="text-sm font-semibold text-foreground">{a}</span>
+                                      <div className="min-w-0 flex-1">
+                                        <span className="text-sm font-semibold text-foreground block truncate">{a.name}</span>
+                                        {a.phone && (
+                                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                            <Phone className="w-3 h-3" />
+                                            {a.phone}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -443,6 +476,70 @@ const Admin = () => {
           )}
         </DialogContent>
       </Dialog>
+      {/* Statistics Section: Attendance by phone */}
+      <div className="mt-8">
+        <div className="glassmorphism p-6 rounded-2xl shadow-xl">
+          <h2 className="font-heading text-xl uppercase tracking-widest text-primary border-b border-white/5 pb-3 mb-5 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Estadísticas de Asistencia
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="glassmorphism p-4 rounded-xl flex flex-col justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Total Asistencias</span>
+              <span className="text-2xl font-heading text-accent mt-1">{totalAttendees}</span>
+            </div>
+            <div className="glassmorphism p-4 rounded-xl flex flex-col justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Asistentes Únicos</span>
+              <span className="text-2xl font-heading text-primary mt-1">{uniqueAssistants}</span>
+            </div>
+            <div className="glassmorphism p-4 rounded-xl flex flex-col justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Rutas con Datos</span>
+              <span className="text-2xl font-heading text-green-400 mt-1">{events.filter((e) => e.attendees.length > 0).length}</span>
+            </div>
+          </div>
+
+          {statsByPhone.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-8 font-medium">
+              Aún no hay asistentes registrados para generar estadísticas.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <p className="flex items-center gap-1.5 text-xs text-accent font-semibold uppercase tracking-widest mb-2">
+                <TrendingUp className="w-4 h-4" />
+                Ranking: quién asiste a más reuniones
+              </p>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                {statsByPhone.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/5">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate leading-tight">
+                        {s.name}
+                      </p>
+                      {s.phone && (
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Phone className="w-3 h-3" />
+                          {s.phone}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-accent/80 font-medium mt-0.5 truncate">
+                        {s.routes.slice(0, 3).join(" • ")}{s.routes.length > 3 ? ` • +${s.routes.length - 3} más` : ""}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="text-lg font-heading text-primary">{s.count}</span>
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-widest">rutas</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </main>
   );
 };

@@ -3,12 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@//hooks/use-toast";
 import { addAttendee, type EventData } from "@/lib/events-store";
-import { UserCheck, Users, ShieldAlert, Award } from "lucide-react";
+import { UserCheck, Users, ShieldAlert, Award, Phone } from "lucide-react";
 
 const AttendanceDialog = ({ event, onUpdate }: { event: EventData; onUpdate: () => void }) => {
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [otherClub, setOtherClub] = useState(false);
   const [clubName, setClubName] = useState("");
   const [open, setOpen] = useState(false);
@@ -19,6 +20,11 @@ const AttendanceDialog = ({ event, onUpdate }: { event: EventData; onUpdate: () 
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone) {
+      toast({ title: "Falta el teléfono", description: "Ingresa tu número de contacto para confirmar la asistencia.", variant: "destructive" });
+      return;
+    }
     const trimmedClub = clubName.trim();
     if (otherClub && !trimmedClub) return;
 
@@ -26,19 +32,20 @@ const AttendanceDialog = ({ event, onUpdate }: { event: EventData; onUpdate: () 
 
     setSubmitting(true);
     try {
-      const success = await addAttendee(event.id, finalName);
+      const success = await addAttendee(event.id, finalName, trimmedPhone);
       if (success) {
         toast({ title: "¡Asistencia confirmada!", description: `${finalName}, te esperamos en la ruta.` });
         setName("");
+        setPhone("");
         setClubName("");
         setOtherClub(false);
         setOpen(false);
         onUpdate();
       } else {
-        toast({ title: "Ya estás registrado", description: "Tu nombre ya aparece en la lista de asistencia.", variant: "destructive" });
+        toast({ title: "Ya estás registrado", description: "Tu nombre y teléfono ya aparecen en la lista de asistencia.", variant: "destructive" });
       }
     } catch {
-      toast({ title: "Error", description: "No se pudo registrar la asistencia. Verifica tu base de datos.", variant: "destructive" });
+      toast({ title: "Error", description: "No se pudo registrar la asistencia. Verifica tu conexión con Appwrite.", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
@@ -75,6 +82,22 @@ const AttendanceDialog = ({ event, onUpdate }: { event: EventData; onUpdate: () 
                 placeholder="Escribe tu nombre"
                 className="bg-muted border-white/5 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50 rounded-lg h-11"
                 maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-accent" />
+                Número de teléfono
+              </label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                inputMode="tel"
+                placeholder="Ej: 300 123 4567"
+                className="bg-muted border-white/5 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50 rounded-lg h-11"
+                maxLength={20}
               />
             </div>
             
@@ -127,9 +150,9 @@ const AttendanceDialog = ({ event, onUpdate }: { event: EventData; onUpdate: () 
               
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {event.attendees.map((a, i) => {
-                  const hasClub = a.includes("(") && a.endsWith(")");
-                  const namePart = hasClub ? a.split(" (")[0] : a;
-                  const clubPart = hasClub ? a.slice(a.indexOf(" (") + 2, -1) : null;
+                  const hasClub = a.name.includes("(") && a.name.endsWith(")");
+                  const namePart = hasClub ? a.name.split(" (")[0] : a.name;
+                  const clubPart = hasClub ? a.name.slice(a.name.indexOf(" (") + 2, -1) : null;
                   
                   return (
                     <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/5">
@@ -140,6 +163,12 @@ const AttendanceDialog = ({ event, onUpdate }: { event: EventData; onUpdate: () 
                         <p className="text-sm font-semibold text-foreground truncate leading-tight">
                           {namePart}
                         </p>
+                        {a.phone && (
+                          <p className="text-[10px] text-muted-foreground font-medium tracking-wide mt-0.5 flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {a.phone}
+                          </p>
+                        )}
                         {clubPart && (
                           <p className="text-[10px] text-accent font-semibold tracking-wider uppercase truncate mt-0.5">
                             {clubPart}

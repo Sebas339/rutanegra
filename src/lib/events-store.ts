@@ -6,6 +6,11 @@ import {
   APPWRITE_ATTENDEES_COLLECTION_ID,
 } from "@/integrations/appwrite/client";
 
+export interface AttendeeData {
+  name: string;
+  phone: string;
+}
+
 export interface EventData {
   id: string;
   title: string;
@@ -15,7 +20,7 @@ export interface EventData {
   location: string;
   description: string;
   cancelled: boolean;
-  attendees: string[];
+  attendees: AttendeeData[];
 }
 
 export const fetchEvents = async (): Promise<EventData[]> => {
@@ -32,14 +37,17 @@ export const fetchEvents = async (): Promise<EventData[]> => {
       [Query.limit(1000)]
     );
 
-    const attendeesMap: Record<string, string[]> = {};
+    const attendeesMap: Record<string, AttendeeData[]> = {};
     for (const doc of attendeesResponse.documents) {
       const eventId = doc.event_id || doc.eventId;
       if (eventId) {
         if (!attendeesMap[eventId]) {
           attendeesMap[eventId] = [];
         }
-        attendeesMap[eventId].push(doc.name);
+        attendeesMap[eventId].push({
+          name: doc.name,
+          phone: doc.phone || "",
+        });
       }
     }
 
@@ -172,14 +180,24 @@ export const deleteEvent = async (id: string): Promise<void> => {
 
 export const addAttendee = async (
   eventId: string,
-  name: string
+  name: string,
+  phone: string
 ): Promise<boolean> => {
   try {
-    // Check if the attendee name is already registered for this event
+    const trimmedPhone = (phone || "").trim();
+    // Check if the attendee (same name + phone) is already registered for this event
+    const filters = [
+      Query.equal("event_id", eventId),
+      Query.equal("name", name),
+    ];
+    if (trimmedPhone) {
+      filters.push(Query.equal("phone", trimmedPhone));
+    }
+
     const existing = await databases.listDocuments(
       APPWRITE_DATABASE_ID,
       APPWRITE_ATTENDEES_COLLECTION_ID,
-      [Query.equal("event_id", eventId), Query.equal("name", name)]
+      filters
     );
 
     if (existing.documents.length > 0) {
@@ -193,6 +211,7 @@ export const addAttendee = async (
       {
         event_id: eventId,
         name,
+        phone: trimmedPhone,
       }
     );
 
