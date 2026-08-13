@@ -26,3 +26,4 @@ dist-ssr
 # Archivos sueltos/descargas que no pertenecen a la web
 components.zip
 VI-22.0.0_GA.VMW-411.zip
+*.zip
