@@ -39,23 +39,17 @@ const Navbar = () => {
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          <a
-            href="/#rutas"
-            className="text-sm font-medium tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors duration-200"
-          >
-            Rutas
-          </a>
           {isAdmin && (
             <Link
-              to="/"
+              to="/admin/estadisticas"
               className="text-sm font-medium tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors duration-200"
             >
-              Ver Web
+              Estadísticas
             </Link>
           )}
         </div>
 
-        {/* Mobile Menu Button - Show only if on admin page, or hide menu trigger entirely on home if there's only one link */}
+        {/* Mobile Menu Button */}
         {isAdmin && (
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -69,19 +63,12 @@ const Navbar = () => {
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && isAdmin && (
         <div className="md:hidden glassmorphism border-t border-white/5 animate-fade-in absolute top-full left-0 right-0 py-4 px-6 flex flex-col gap-4 shadow-xl">
-          <a
-            href="/#rutas"
-            onClick={() => setMobileMenuOpen(false)}
-            className="text-sm font-semibold tracking-wider uppercase text-muted-foreground hover:text-primary py-2 transition-colors duration-200"
-          >
-            Rutas
-          </a>
           <Link
-            to="/"
+            to="/admin/estadisticas"
             onClick={() => setMobileMenuOpen(false)}
             className="text-sm font-semibold tracking-wider uppercase text-muted-foreground hover:text-primary py-2 transition-colors duration-200"
           >
-            Ver Web
+            Estadísticas
           </Link>
         </div>
       )}
