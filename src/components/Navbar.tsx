@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Settings, ShieldAlert, Menu, X } from "lucide-react";
+import { ShieldAlert, Menu, X, LogIn, Users as UsersIcon, BarChart3 } from "lucide-react";
 import logoAsset from "@/assets/ruta-negra-logo.png";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const isAdmin = location.pathname === "/admin";
+  const isAdminZone = location.pathname.startsWith("/admin");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -39,18 +39,36 @@ const Navbar = () => {
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          {isAdmin && (
+          {isAdminZone ? (
+            <>
+              <Link
+                to="/admin/estadisticas"
+                className="text-sm font-medium tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors duration-200 flex items-center gap-1.5"
+              >
+                <BarChart3 className="w-4 h-4" />
+                Estadísticas
+              </Link>
+              <Link
+                to="/admin/usuarios"
+                className="text-sm font-medium tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors duration-200 flex items-center gap-1.5"
+              >
+                <UsersIcon className="w-4 h-4" />
+                Usuarios
+              </Link>
+            </>
+          ) : (
             <Link
-              to="/admin/estadisticas"
-              className="text-sm font-medium tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors duration-200"
+              to="/login"
+              className="text-sm font-medium tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors duration-200 flex items-center gap-1.5"
             >
-              Estadísticas
+              <LogIn className="w-4 h-4" />
+              Acceso
             </Link>
           )}
         </div>
 
         {/* Mobile Menu Button */}
-        {isAdmin && (
+        {isAdminZone && (
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden text-foreground hover:text-primary transition-colors focus:outline-none"
@@ -58,17 +76,32 @@ const Navbar = () => {
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         )}
+        {!isAdminZone && (
+          <Link
+            to="/login"
+            className="md:hidden text-foreground hover:text-primary transition-colors flex items-center gap-1.5 text-sm uppercase tracking-wider"
+          >
+            <LogIn className="w-4 h-4" /> Acceso
+          </Link>
+        )}
       </div>
 
-      {/* Mobile Menu Drawer */}
-      {mobileMenuOpen && isAdmin && (
+      {/* Mobile Menu Drawer (admin) */}
+      {mobileMenuOpen && isAdminZone && (
         <div className="md:hidden glassmorphism border-t border-white/5 animate-fade-in absolute top-full left-0 right-0 py-4 px-6 flex flex-col gap-4 shadow-xl">
           <Link
             to="/admin/estadisticas"
             onClick={() => setMobileMenuOpen(false)}
-            className="text-sm font-semibold tracking-wider uppercase text-muted-foreground hover:text-primary py-2 transition-colors duration-200"
+            className="text-sm font-semibold tracking-wider uppercase text-muted-foreground hover:text-primary py-2 transition-colors duration-200 flex items-center gap-2"
           >
-            Estadísticas
+            <BarChart3 className="w-4 h-4" /> Estadísticas
+          </Link>
+          <Link
+            to="/admin/usuarios"
+            onClick={() => setMobileMenuOpen(false)}
+            className="text-sm font-semibold tracking-wider uppercase text-muted-foreground hover:text-primary py-2 transition-colors duration-200 flex items-center gap-2"
+          >
+            <UsersIcon className="w-4 h-4" /> Usuarios
           </Link>
         </div>
       )}

@@ -27,3 +27,5 @@ dist-ssr
 components.zip
 VI-22.0.0_GA.VMW-411.zip
 *.zip
+.env
+.env.example
