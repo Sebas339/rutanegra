@@ -37,26 +37,30 @@ export function clearSession() {
 }
 
 export async function login(email: string, password: string): Promise<{ ok: boolean; mustChangePw?: boolean; error?: string }> {
-  const res = await fetch("/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    return { ok: false, error: data.error || "Error de autenticación" };
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data.error || "Error de autenticación" };
+    }
+    // Appwrite devuelve session con jwt; si no viene, intentamos con account.createEmailPasswordSession
+    const token = data.jwt || (data.session && data.session.jwt) || null;
+    if (!token) return { ok: false, error: "No se recibió token de sesión" };
+    saveSession(token, {
+      userId: data.userId,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      mustChangePw: data.mustChangePw,
+    });
+    return { ok: true, mustChangePw: data.mustChangePw };
+  } catch (e) {
+    return { ok: false, error: "No se pudo conectar con el servidor" };
   }
-  // Appwrite devuelve session con jwt; si no viene, intentamos con account.createEmailPasswordSession
-  const token = data.jwt || (data.session && data.session.jwt) || null;
-  if (!token) return { ok: false, error: "No se recibió token de sesión" };
-  saveSession(token, {
-    userId: data.userId,
-    name: data.name,
-    email: data.email,
-    role: data.role,
-    mustChangePw: data.mustChangePw,
-  });
-  return { ok: true, mustChangePw: data.mustChangePw };
 }
 
 export async function changePassword(newPassword: string): Promise<{ ok: boolean; error?: string }> {

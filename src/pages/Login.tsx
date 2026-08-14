@@ -18,16 +18,21 @@ const Login = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await login(email, password);
-    setLoading(false);
-    if (!res.ok) {
-      setError(res.error || "Credenciales incorrectas");
-      return;
-    }
-    if (res.mustChangePw) {
-      navigate("/first-login");
-    } else {
-      navigate(from);
+    try {
+      const res = await login(email, password);
+      if (!res.ok) {
+        setError(res.error || "Credenciales incorrectas");
+        return;
+      }
+      if (res.mustChangePw) {
+        navigate("/first-login");
+      } else {
+        navigate(from);
+      }
+    } catch {
+      setError("Ocurrió un error inesperado");
+    } finally {
+      setLoading(false);
     }
   };
 
