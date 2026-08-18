@@ -16,11 +16,13 @@ const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "Enlajuega1.";
 const SEED_ADMIN_NAME = process.env.SEED_ADMIN_NAME || "Manuela Perez";
 
 // ---------- Blobs helpers ----------
-// En producción usa @netlify/blobs. En tests locales se puede inyectar
-// globalThis.__BLOBS_STORE__ = { get, set } para evitar dependencia del token.
+// Modo automático: Netlify inyecta siteID + token cuando la integración
+// Blobs está activa en el sitio. No necesitamos pasarlas manualmente.
+// En tests locales se puede inyectar globalThis.__BLOBS_STORE__ = { get, set }.
 async function getUsersStore() {
   if (globalThis.__BLOBS_STORE__) return globalThis.__BLOBS_STORE__;
-  return getStore({ name: STORE_NAME, siteID: SITE_KEY, token: process.env.NETLIFY_BLOBS_TOKEN });
+  // Sin siteID ni token: Netlify los resuelve automáticamente en el runtime.
+  return getStore({ name: STORE_NAME });
 }
 
 async function readUsers() {
