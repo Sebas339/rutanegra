@@ -38,10 +38,10 @@ export function clearSession() {
 
 export async function login(email: string, password: string): Promise<{ ok: boolean; mustChangePw?: boolean; error?: string }> {
   try {
-    const res = await fetch("/api/login", {
+    const res = await fetch("/.netlify/functions/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ path: "login", email, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -66,12 +66,12 @@ export async function login(email: string, password: string): Promise<{ ok: bool
 export async function changePassword(newPassword: string): Promise<{ ok: boolean; error?: string }> {
   const token = getToken();
   if (!token) return { ok: false, error: "No hay sesión" };
-  const res = await fetch("/api/change-password", {
+  const res = await fetch("/.netlify/functions/auth", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jwt: token, newPassword }),
+    body: JSON.stringify({ path: "change-password", jwt: token, newPassword }),
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) return { ok: false, error: data.error || "Error" };
   // actualizar sesión local: ya no debe cambiar pw
   const u = getSessionUser();
@@ -82,25 +82,32 @@ export async function changePassword(newPassword: string): Promise<{ ok: boolean
 export async function logout() {
   const token = getToken();
   if (token) {
-    // cerrar sesión en Appwrite (best-effort)
-    fetch("/api/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    fetch("/.netlify/functions/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ path: "logout" }),
+    }).catch(() => {});
   }
   clearSession();
 }
 
 // Helpers para llamar al backend autenticado
-export async function apiGet(path: string) {
+export async function apiGet(p: string) {
   const token = getToken();
-  const res = await fetch(`/api/${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch("/.netlify/functions/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ path: p, method: "GET" }),
+  });
   return res.json();
 }
 
-export async function apiSend(path: string, method: string, body?: Record<string, unknown>) {
+export async function apiSend(p: string, method: string, body?: Record<string, unknown>) {
   const token = getToken();
-  const res = await fetch(`/api/${path}`, {
-    method,
+  const res = await fetch("/.netlify/functions/auth", {
+    method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: body ? JSON.stringify(body) : undefined,
+    body: JSON.stringify({ path: p, method, ...body }),
   });
   return res.json();
 }

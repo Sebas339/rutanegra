@@ -112,8 +112,16 @@ function getBearer(event) {
 export async function handler(event) {
   const rawUrl = event.rawUrl || `https://example.com${event.path || "/"}`;
   const url = new URL(rawUrl);
-  const path = url.pathname.replace(/^\/api\/?/, "").replace(/\/$/, "");
-  const method = (event.httpMethod || "GET").toUpperCase();
+  // path desde la URL (redirect /api/...) O desde el body (llamada directa)
+  let path = url.pathname.replace(/^\/api\/?/, "").replace(/^\/|\/$/g, "");
+  let bodyObj = {};
+  try { bodyObj = event.body ? JSON.parse(event.body) : {}; } catch { bodyObj = {}; }
+  if (bodyObj.path) path = String(bodyObj.path).replace(/^\/|\/$/g, "");
+  // method desde la URL o desde el body (llamada directa del frontend)
+  let method = (event.httpMethod || "GET").toUpperCase();
+  if (bodyObj.method) method = String(bodyObj.method).toUpperCase();
+  // PUT y PATCH son equivalentes para actualización
+  if (method === "PUT") method = "PATCH";
 
   try {
     // ===== LOGIN =====
