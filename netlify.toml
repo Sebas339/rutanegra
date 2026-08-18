@@ -8,7 +8,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/auth"
   status = 200
 
 # Netlify Blobs (almacenamiento de usuarios sin Appwrite)
