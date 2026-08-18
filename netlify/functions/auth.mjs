@@ -1,107 +1,106 @@
 // Backend de autenticación y gestión de usuarios (Netlify Function)
-// Auth propia con bcrypt + almacenamiento en Netlify Blobs (sin Appwrite).
+// Auth propia con bcrypt + Netlify DB (Postgres) vía pg. Sin Appwrite.
 // El backend firma su propio JWT (HMAC) para la sesión del frontend.
 // Todas las operaciones validan el rol del llamador en el servidor.
+//
+// Netlify inyecta DATABASE_URL automáticamente al vincular una DB al sitio.
 
-import { getStore } from "@netlify/blobs";
+import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 
 const JWT_SECRET = process.env.JWT_SECRET || "cambia-este-secreto-en-netlify-2026";
-const SITE_KEY = process.env.SITE_KEY || "rn-auth";
-const STORE_NAME = "rn-users";
 
 // Semilla del admin inicial (se crea solo si no hay usuarios)
 const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "laschicasenmotomanizales@gmail.com";
 const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "Enlajuega1.";
 const SEED_ADMIN_NAME = process.env.SEED_ADMIN_NAME || "Manuela Perez";
 
-// ---------- Blobs helpers ----------
-// Modo automático: Netlify inyecta siteID + token cuando la integración
-// Blobs está activa en el sitio. No necesitamos pasarlas manualmente.
-// En tests locales se puede inyectar globalThis.__BLOBS_STORE__ = { get, set }.
-async function getUsersStore() {
-  if (globalThis.__BLOBS_STORE__) return globalThis.__BLOBS_STORE__;
-  // Sin siteID ni token: Netlify los resuelve automáticamente en el runtime.
-  return getStore({ name: STORE_NAME });
+// ---------- Pool de Postgres ----------
+let _pool = null;
+function getPool() {
+  if (_pool) return _pool;
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL no está definida (vincula una Netlify DB al sito)");
+  }
+  _pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  return _pool;
 }
 
-async function readUsers() {
-  const store = await getUsersStore();
-  const raw = await store.get("users", { type: "json" });
-  return raw && Array.isArray(raw.users) ? raw.users : [];
+// ---------- Init schema (idempotente) ----------
+let _schemaReady = false;
+async function ensureSchema() {
+  if (_schemaReady) return;
+  const pool = getPool();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      role TEXT NOT NULL CHECK (role IN ('admin','lider')),
+      password_hash TEXT NOT NULL,
+      must_change_pw BOOLEAN NOT NULL DEFAULT true,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_by UUID,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  // Sembrar admin si no hay ningún usuario
+  const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
+  if (rows[0].n === 0) {
+    const hash = await bcrypt.hash(SEED_ADMIN_PASSWORD, 10);
+    await pool.query(
+      `INSERT INTO users (id, name, email, role, password_hash, must_change_pw, active, created_by)
+       VALUES ($1,$2,$3,$4,$5,false,true,NULL)`,
+      ["00000000-0000-0000-0000-000000000001", SEED_ADMIN_NAME, SEED_ADMIN_EMAIL.toLowerCase(), "admin", hash]
+    );
+  }
+  _schemaReady = true;
 }
 
-async function writeUsers(users) {
-  const store = await getUsersStore();
-  await store.set("users", JSON.stringify({ users }), { metadata: { updatedAt: new Date().toISOString() } });
+// ---------- Helpers ----------
+function rowToUser(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    role: r.role,
+    active: r.active,
+    mustChangePw: r.must_change_pw === true,
+  };
 }
 
-async function ensureSeed() {
-  const users = await readUsers();
-  if (users.length > 0) return;
-  const hash = await bcrypt.hash(SEED_ADMIN_PASSWORD, 10);
-  users.push({
-    id: crypto.randomUUID(),
-    name: SEED_ADMIN_NAME,
-    email: SEED_ADMIN_EMAIL.toLowerCase(),
-    role: "admin",
-    passwordHash: hash,
-    mustChangePw: false,
-    active: true,
-    createdBy: "seed",
-  });
-  await writeUsers(users);
-}
-
-// ---------- JWT propio (HMAC-SHA256 con Web Crypto) ----------
-function b64url(buf) {
-  return Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function b64urlStr(s) {
-  return b64url(Buffer.from(s, "utf8"));
-}
+// ---------- JWT (HMAC con Web Crypto) ----------
+const enc = new TextEncoder();
 async function signJWT(payload) {
-  const enc = new TextEncoder();
   const header = { alg: "HS256", typ: "JWT" };
-  const headerB64 = b64urlStr(JSON.stringify(header));
-  const payloadB64 = b64urlStr(JSON.stringify(payload));
-  const data = `${headerB64}.${payloadB64}`;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(JWT_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
-  return `${data}.${b64url(sig)}`;
+  const h = b64url(JSON.stringify(header));
+  const p = b64url(JSON.stringify(payload));
+  const data = enc.encode(h + "." + p);
+  const key = await crypto.subtle.importKey("raw", enc.encode(JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, data);
+  return h + "." + p + "." + b64url(new Uint8Array(sig));
 }
 async function verifyJWT(token) {
-  if (!token || typeof token !== "string" || !token.includes(".")) return null;
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [headerB64, payloadB64, sigB64] = parts;
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(JWT_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["verify"]
-  );
-  const sig = Buffer.from(sigB64.replace(/-/g, "+").replace(/_/g, "/"), "base64");
-  const ok = await crypto.subtle.verify("HMAC", key, sig, enc.encode(`${headerB64}.${payloadB64}`));
-  if (!ok) return null;
   try {
-    const payload = JSON.parse(Buffer.from(payloadB64.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
-    return payload;
-  } catch {
-    return null;
-  }
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const data = enc.encode(parts[0] + "." + parts[1]);
+    const key = await crypto.subtle.importKey("raw", enc.encode(JWT_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
+    const ok = await crypto.subtle.verify("HMAC", key, b64urlDecode(parts[2]), data);
+    if (!ok) return null;
+    return JSON.parse(new TextDecoder().decode(b64urlDecode(parts[1])));
+  } catch { return null; }
+}
+function b64url(s) {
+  return Buffer.from(s, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64urlDecode(s) {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  return Buffer.from(s, "base64");
 }
 
-// ---------- helpers ----------
+// ---------- Respuesta clásica de Netlify Function ----------
 function json(obj, status = 200) {
   return { statusCode: status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) };
 }
@@ -110,157 +109,116 @@ function getBearer(event) {
   return h.startsWith("Bearer ") ? h.slice(7) : null;
 }
 
-// ---------- handler principal ----------
+// ---------- Handler ----------
 export async function handler(event) {
+  // path desde URL (redirect /api/...) o desde body (llamada directa)
   const rawUrl = event.rawUrl || `https://example.com${event.path || "/"}`;
   const url = new URL(rawUrl);
-  // path desde la URL (redirect /api/...) O desde el body (llamada directa)
   let path = url.pathname.replace(/^\/api\/?/, "").replace(/^\/|\/$/g, "");
   let bodyObj = {};
   try { bodyObj = event.body ? JSON.parse(event.body) : {}; } catch { bodyObj = {}; }
   if (bodyObj.path) path = String(bodyObj.path).replace(/^\/|\/$/g, "");
-  // method desde la URL o desde el body (llamada directa del frontend)
   let method = (event.httpMethod || "GET").toUpperCase();
   if (bodyObj.method) method = String(bodyObj.method).toUpperCase();
-  // PUT y PATCH son equivalentes para actualización
   if (method === "PUT") method = "PATCH";
 
   try {
+    await ensureSchema();
+
     // ===== LOGIN =====
     if (path === "login" && method === "POST") {
-      const { email, password } = JSON.parse(event.body || "{}");
+      const { email, password } = bodyObj;
       if (!email || !password) return json({ error: "Email y contraseña requeridos" }, 400);
-      await ensureSeed();
-      const users = await readUsers();
-      const user = users.find((u) => u.email === String(email).toLowerCase());
+      const pool = getPool();
+      const { rows } = await pool.query("SELECT * FROM users WHERE email = $1", [String(email).toLowerCase()]);
+      const user = rows[0];
       if (!user || !user.active) return json({ error: "Credenciales incorrectas" }, 401);
-      const ok = await bcrypt.compare(password, user.passwordHash);
+      const ok = await bcrypt.compare(password, user.password_hash);
       if (!ok) return json({ error: "Credenciales incorrectas" }, 401);
-
       const exp = Math.floor(Date.now() / 1000) + 12 * 3600;
       const token = await signJWT({
-        sub: user.id,
-        role: user.role,
-        name: user.name,
-        email: user.email,
-        mustChangePw: user.mustChangePw === true,
-        exp,
+        sub: user.id, role: user.role, name: user.name, email: user.email,
+        mustChangePw: user.must_change_pw === true, exp,
       });
-      return json({
-        jwt: token,
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        mustChangePw: user.mustChangePw === true,
-      });
+      return json({ jwt: token, userId: user.id, name: user.name, email: user.email, role: user.role, mustChangePw: user.must_change_pw === true });
     }
 
-    // ===== CAMBIO DE CONTRASEÑA (primer login o normal) =====
+    // ===== CAMBIO DE CONTRASEÑA =====
     if (path === "change-password" && method === "POST") {
-      const { jwt, newPassword } = JSON.parse(event.body || "{}");
+      const { jwt, newPassword } = bodyObj;
       const me = await verifyJWT(jwt);
       if (!me) return json({ error: "Sesión inválida" }, 401);
       if (!newPassword || newPassword.length < 6) return json({ error: "La contraseña debe tener al menos 6 caracteres" }, 400);
-      const users = await readUsers();
-      const user = users.find((u) => u.id === me.sub);
-      if (!user) return json({ error: "Usuario no encontrado" }, 404);
-      user.passwordHash = await bcrypt.hash(newPassword, 10);
-      user.mustChangePw = false;
-      await writeUsers(users);
+      const pool = getPool();
+      await pool.query("UPDATE users SET password_hash = $1, must_change_pw = false WHERE id = $2", [await bcrypt.hash(newPassword, 10), me.sub]);
       return json({ ok: true });
     }
 
-    // ===== RUTAS PROTEGIDAS (requieren JWT) =====
+    // ===== RUTAS PROTEGIDAS =====
     const token = getBearer(event);
     const me = await verifyJWT(token);
     if (!me) return json({ error: "No autenticado" }, 401);
     const isAdmin = me.role === "admin";
     const isLider = me.role === "lider";
 
-    // ===== LISTAR USUARIOS =====
+    // ===== LISTAR =====
     if (path === "users" && method === "GET") {
       if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
-      const users = await readUsers();
-      const list = users.map((u) => ({
-        id: u.id,
-        userId: u.id,
-        name: u.name,
-        email: u.email,
-        role: u.role,
-        active: u.active,
-        mustChangePw: u.mustChangePw,
-      }));
+      const { rows } = await getPool().query("SELECT * FROM users ORDER BY created_at DESC");
+      const list = rows.map(rowToUser);
       return json({ users: list, callerRole: me.role });
     }
 
-    // ===== CREAR USUARIO (admin o lider) =====
+    // ===== CREAR =====
     if (path === "users" && method === "POST") {
       if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
-      const { name, email, password, role } = JSON.parse(event.body || "{}");
+      const { name, email, password, role } = bodyObj;
       if (!name || !email || !password || !role) return json({ error: "Faltan campos" }, 400);
       if (!["admin", "lider"].includes(role)) return json({ error: "Rol inválido" }, 400);
       if (password.length < 6) return json({ error: "La contraseña temporal debe tener al menos 6 caracteres" }, 400);
-      const users = await readUsers();
-      if (users.some((u) => u.email === String(email).toLowerCase())) {
-        return json({ error: "Ese correo ya está registrado" }, 400);
-      }
+      const pool = getPool();
+      const exists = await pool.query("SELECT id FROM users WHERE email = $1", [String(email).toLowerCase()]);
+      if (exists.rows.length) return json({ error: "Ese correo ya está registrado" }, 400);
       const newId = crypto.randomUUID();
-      users.push({
-        id: newId,
-        name,
-        email: String(email).toLowerCase(),
-        role,
-        passwordHash: await bcrypt.hash(password, 10),
-        mustChangePw: true,
-        active: true,
-        createdBy: me.sub,
-      });
-      await writeUsers(users);
+      await pool.query(
+        `INSERT INTO users (id, name, email, role, password_hash, must_change_pw, active, created_by)
+         VALUES ($1,$2,$3,$4,$5,true,true,$6)`,
+        [newId, name, String(email).toLowerCase(), role, await bcrypt.hash(password, 10), me.sub]
+      );
       return json({ ok: true, userId: newId }, 201);
     }
 
-    // ===== ACTUALIZAR USUARIO (rol, activar/desactivar) =====
+    // ===== ACTUALIZAR (rol, activar/desactivar) =====
     if (path.startsWith("users/") && method === "PATCH") {
       const targetId = path.split("/")[1];
-      const body = JSON.parse(event.body || "{}");
-      const { role, active } = body;
-      const users = await readUsers();
-      const user = users.find((u) => u.id === targetId);
+      const { role, active } = bodyObj;
+      const pool = getPool();
+      const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [targetId]);
+      const user = rows[0];
       if (!user) return json({ error: "Usuario no encontrado" }, 404);
-
-      // LÍDER: NO puede cambiar su propio rol a admin
-      if (isLider && me.sub === targetId && role && role !== "lider") {
-        return json({ error: "Un líder no puede cambiar su propio rol" }, 403);
-      }
-      // LÍDER: NO puede asignar rol admin a otro
-      if (isLider && role === "admin" && user.role !== "admin") {
-        return json({ error: "Un líder no puede asignar rol admin" }, 403);
-      }
-      if (typeof role !== "undefined") user.role = role;
-      if (typeof active !== "undefined") user.active = active;
-      await writeUsers(users);
+      if (isLider && me.sub === targetId && role && role !== "lider") return json({ error: "Un líder no puede cambiar su propio rol" }, 403);
+      if (isLider && role === "admin" && user.role !== "admin") return json({ error: "Un líder no puede asignar rol admin" }, 403);
+      if (typeof role !== "undefined") await pool.query("UPDATE users SET role = $1 WHERE id = $2", [role, targetId]);
+      if (typeof active !== "undefined") await pool.query("UPDATE users SET active = $1 WHERE id = $2", [active, targetId]);
       return json({ ok: true });
     }
 
-    // ===== ELIMINAR USUARIO =====
+    // ===== ELIMINAR =====
     if (path.startsWith("users/") && method === "DELETE") {
       const targetId = path.split("/")[1];
-      const users = await readUsers();
-      const user = users.find((u) => u.id === targetId);
+      const pool = getPool();
+      const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [targetId]);
+      const user = rows[0];
       if (!user) return json({ error: "Usuario no encontrado" }, 404);
-      // LÍDER: NO puede eliminar usuarios
       if (isLider) return json({ error: "Un líder no puede eliminar usuarios" }, 403);
-      // admin no se elimina a sí mismo
       if (me.sub === targetId) return json({ error: "No puedes eliminarte a ti mismo" }, 403);
-      const next = users.filter((u) => u.id !== targetId);
-      await writeUsers(next);
+      await pool.query("DELETE FROM users WHERE id = $1", [targetId]);
       return json({ ok: true });
     }
 
     return json({ error: "Ruta no encontrada" }, 404);
   } catch (e) {
     console.error("ERROR handler:", e);
-    return json({ error: "Error interno" }, 500);
+    return json({ error: "Error interno", detail: String(e && e.message || e) }, 500);
   }
 }
