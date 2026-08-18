@@ -45,7 +45,7 @@ const AttendanceDialog = ({ event, onUpdate }: { event: EventData; onUpdate: () 
         toast({ title: "Ya estás registrado", description: "Tu nombre y teléfono ya aparecen en la lista de asistencia.", variant: "destructive" });
       }
     } catch {
-      toast({ title: "Error", description: "No se pudo registrar la asistencia. Verifica tu conexión con Appwrite.", variant: "destructive" });
+      toast({ title: "Error", description: "No se pudo registrar la asistencia. Verifica tu conexión con el servidor.", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }

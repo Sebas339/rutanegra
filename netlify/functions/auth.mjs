@@ -54,6 +54,35 @@ async function ensureSchema() {
       ["00000000-0000-0000-0000-000000000001", SEED_ADMIN_NAME, SEED_ADMIN_EMAIL.toLowerCase(), "admin", hash]
     );
   }
+
+  // Tabla de eventos (rutas)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS events (
+      id UUID PRIMARY KEY,
+      title TEXT NOT NULL,
+      date TEXT NOT NULL DEFAULT '',
+      meeting_time TEXT NOT NULL DEFAULT '',
+      meeting_point TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      cancelled BOOLEAN NOT NULL DEFAULT false,
+      created_by UUID,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // Tabla de asistentes (teléfono en asistencia)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS attendees (
+      id UUID PRIMARY KEY,
+      event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      name TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_attendees_event ON attendees (event_id);`);
+
   _schemaReady = true;
 }
 
@@ -214,6 +243,84 @@ export async function handler(event) {
       if (me.sub === targetId) return json({ error: "No puedes eliminarte a ti mismo" }, 403);
       await pool.query("DELETE FROM users WHERE id = $1", [targetId]);
       return json({ ok: true });
+    }
+
+    // ===== EVENTOS =====
+    if (path === "events" && method === "GET") {
+      if (!me) return json({ error: "No autenticado" }, 401);
+      const pool = getPool();
+      const { rows: evs } = await pool.query("SELECT * FROM events ORDER BY date ASC");
+      const { rows: atts } = await pool.query("SELECT * FROM attendees");
+      const byEvent = {};
+      for (const a of atts) {
+        if (!byEvent[a.event_id]) byEvent[a.event_id] = [];
+        byEvent[a.event_id].push({ name: a.name, phone: a.phone });
+      }
+      const list = evs.map((e) => ({
+        id: e.id, title: e.title, date: e.date, meetingTime: e.meeting_time,
+        meetingPoint: e.meeting_point, location: e.location, description: e.description,
+        cancelled: e.cancelled === true, attendees: byEvent[e.id] || [],
+      }));
+      return json({ events: list });
+    }
+
+    if (path === "events" && method === "POST") {
+      if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
+      const { title, date, meetingTime, meetingPoint, location, description } = bodyObj;
+      if (!title) return json({ error: "El título es requerido" }, 400);
+      const newId = crypto.randomUUID();
+      await getPool().query(
+        `INSERT INTO events (id, title, date, meeting_time, meeting_point, location, description, cancelled, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,false,$8)`,
+        [newId, title, date || "", meetingTime || "", meetingPoint || "", location || "", description || "", me.sub]
+      );
+      return json({ ok: true, id: newId }, 201);
+    }
+
+    if (path.startsWith("events/") && method === "PATCH") {
+      if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
+      const targetId = path.split("/")[1];
+      const { title, date, meetingTime, meetingPoint, location, description, cancelled } = bodyObj;
+      const pool = getPool();
+      const sets = []; const vals = []; let i = 1;
+      const add = (col, val) => { if (typeof val !== "undefined") { sets.push(`${col} = $${i++}`); vals.push(val); } };
+      add("title", title); add("date", date); add("meeting_time", meetingTime);
+      add("meeting_point", meetingPoint); add("location", location); add("description", description);
+      add("cancelled", cancelled);
+      if (sets.length === 0) return json({ ok: true });
+      vals.push(targetId);
+      await pool.query(`UPDATE events SET ${sets.join(", ")} WHERE id = $${i}`, vals);
+      return json({ ok: true });
+    }
+
+    if (path.startsWith("events/") && method === "DELETE") {
+      if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
+      const targetId = path.split("/")[1];
+      await getPool().query("DELETE FROM events WHERE id = $1", [targetId]);
+      return json({ ok: true });
+    }
+
+    // ===== ASISTENTES (teléfono en asistencia) =====
+    // Agregar asistente a un evento
+    if (path === "attendees" && method === "POST") {
+      if (!me) return json({ error: "No autenticado" }, 401);
+      const { eventId, name, phone } = bodyObj;
+      if (!eventId || !name) return json({ error: "Faltan campos" }, 400);
+      const pool = getPool();
+      const { rows: ev } = await pool.query("SELECT id FROM events WHERE id = $1", [eventId]);
+      if (!ev.length) return json({ error: "Evento no encontrado" }, 404);
+      const trimmedPhone = (phone || "").trim();
+      const { rows: exist } = await pool.query(
+        "SELECT id FROM attendees WHERE event_id = $1 AND name = $2 AND phone = $3",
+        [eventId, name, trimmedPhone]
+      );
+      if (exist.length) return json({ ok: false, duplicated: true });
+      const newId = crypto.randomUUID();
+      await pool.query(
+        "INSERT INTO attendees (id, event_id, name, phone) VALUES ($1,$2,$3,$4)",
+        [newId, eventId, name, trimmedPhone]
+      );
+      return json({ ok: true, id: newId }, 201);
     }
 
     return json({ error: "Ruta no encontrada" }, 404);

@@ -66,7 +66,7 @@ const Admin = () => {
       });
       form.reset();
     } catch {
-      toast({ title: "Error", description: "No se pudo crear la ruta. Comprueba tu conexión con Appwrite.", variant: "destructive" });
+      toast({ title: "Error", description: "No se pudo crear la ruta. Comprueba tu conexión con el servidor.", variant: "destructive" });
     } finally {
       setLoading(false);
     }

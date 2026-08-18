@@ -1,5 +1,5 @@
-// Sesión de usuario en el frontend. Guardamos el JWT de Appwrite en localStorage.
-// El JWT se envía en Authorization: Bearer a las Netlify Functions (backend).
+// Sesión de usuario en el frontend. Guardamos el JWT del backend en localStorage.
+// El JWT se envía en Authorization: Bearer *** las Netlify Functions (backend).
 
 const TOKEN_KEY = "rn_token";
 const USER_KEY = "rn_user";

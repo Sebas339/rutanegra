@@ -1,10 +1,6 @@
-import { ID, Query } from "appwrite";
-import {
-  databases,
-  APPWRITE_DATABASE_ID,
-  APPWRITE_EVENTS_COLLECTION_ID,
-  APPWRITE_ATTENDEES_COLLECTION_ID,
-} from "@/integrations/appwrite/client";
+// Store de eventos/asistentes usando el backend de Netlify (Postgres).
+
+import { getToken } from "@/lib/auth";
 
 export interface AttendeeData {
   name: string;
@@ -23,159 +19,61 @@ export interface EventData {
   attendees: AttendeeData[];
 }
 
+function api(path: string, method: string, body?: Record<string, unknown>) {
+  const token = getToken();
+  return fetch("/.netlify/functions/auth", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ path, method, ...body }),
+  }).then(async (r) => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Error en el servidor");
+    return data;
+  });
+}
+
 export const fetchEvents = async (): Promise<EventData[]> => {
-  try {
-    const eventsResponse = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_EVENTS_COLLECTION_ID,
-      [Query.orderAsc("date")]
-    );
-
-    const attendeesResponse = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_ATTENDEES_COLLECTION_ID,
-      [Query.limit(1000)]
-    );
-
-    const attendeesMap: Record<string, AttendeeData[]> = {};
-    for (const doc of attendeesResponse.documents) {
-      const eventId = doc.event_id || doc.eventId;
-      if (eventId) {
-        if (!attendeesMap[eventId]) {
-          attendeesMap[eventId] = [];
-        }
-        attendeesMap[eventId].push({
-          name: doc.name,
-          phone: doc.phone || "",
-        });
-      }
-    }
-
-    return eventsResponse.documents.map((doc: any) => {
-      const meetingTime = doc.meetingTime || doc.meeting_time || "";
-      const meetingPoint = doc.meetingPoint || doc.meeting_point || "";
-      return {
-        id: doc.$id,
-        title: doc.title || "",
-        date: doc.date || "",
-        meetingTime,
-        meetingPoint,
-        location: doc.location || "",
-        description: doc.description || "",
-        cancelled: !!doc.cancelled,
-        attendees: attendeesMap[doc.$id] || [],
-      };
-    });
-  } catch (error) {
-    console.error("Error fetching events from Appwrite:", error);
-    throw error;
-  }
+  const data = await api("events", "GET");
+  return (data.events || []) as EventData[];
 };
 
 export const addEvent = async (
   event: Omit<EventData, "id" | "attendees" | "cancelled">
 ): Promise<EventData> => {
-  try {
-    const payload: Record<string, any> = {
-      title: event.title,
-      date: event.date,
-      meetingTime: event.meetingTime,
-      meetingPoint: event.meetingPoint,
-      location: event.location,
-      description: event.description,
-      cancelled: false,
-    };
-
-    const data = await databases.createDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_EVENTS_COLLECTION_ID,
-      ID.unique(),
-      payload
-    );
-
-    return {
-      id: data.$id,
-      title: data.title,
-      date: data.date,
-      meetingTime: data.meetingTime || data.meeting_time || "",
-      meetingPoint: data.meetingPoint || data.meeting_point || "",
-      location: data.location,
-      description: data.description,
-      cancelled: !!data.cancelled,
-      attendees: [],
-    };
-  } catch (error) {
-    console.error("Error adding event to Appwrite:", error);
-    throw error;
-  }
+  const data = await api("events", "POST", {
+    title: event.title,
+    date: event.date,
+    meetingTime: event.meetingTime,
+    meetingPoint: event.meetingPoint,
+    location: event.location,
+    description: event.description,
+  });
+  return { ...event, id: data.id, cancelled: false, attendees: [] };
 };
 
 export const setEventCancelled = async (id: string, cancelled: boolean): Promise<void> => {
-  try {
-    await databases.updateDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_EVENTS_COLLECTION_ID,
-      id,
-      { cancelled }
-    );
-  } catch (error) {
-    console.error("Error setting event cancelled in Appwrite:", error);
-    throw error;
-  }
+  await api(`events/${id}`, "PATCH", { cancelled });
 };
 
 export const updateEvent = async (
   id: string,
   event: Omit<EventData, "id" | "attendees" | "cancelled">
 ): Promise<void> => {
-  try {
-    const payload: Record<string, any> = {
-      title: event.title,
-      date: event.date,
-      meetingTime: event.meetingTime,
-      meetingPoint: event.meetingPoint,
-      location: event.location,
-      description: event.description,
-    };
-
-    await databases.updateDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_EVENTS_COLLECTION_ID,
-      id,
-      payload
-    );
-  } catch (error) {
-    console.error("Error updating event in Appwrite:", error);
-    throw error;
-  }
+  await api(`events/${id}`, "PATCH", {
+    title: event.title,
+    date: event.date,
+    meetingTime: event.meetingTime,
+    meetingPoint: event.meetingPoint,
+    location: event.location,
+    description: event.description,
+  });
 };
 
 export const deleteEvent = async (id: string): Promise<void> => {
-  try {
-    await databases.deleteDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_EVENTS_COLLECTION_ID,
-      id
-    );
-
-    // Optional: Clean up associated attendees
-    const attendeesResponse = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_ATTENDEES_COLLECTION_ID,
-      [Query.equal("event_id", id)]
-    );
-
-    for (const doc of attendeesResponse.documents) {
-      await databases.deleteDocument(
-        APPWRITE_DATABASE_ID,
-        APPWRITE_ATTENDEES_COLLECTION_ID,
-        doc.$id
-      );
-    }
-  } catch (error) {
-    console.error("Error deleting event in Appwrite:", error);
-    throw error;
-  }
+  await api(`events/${id}`, "DELETE");
 };
 
 export const addAttendee = async (
@@ -183,41 +81,7 @@ export const addAttendee = async (
   name: string,
   phone: string
 ): Promise<boolean> => {
-  try {
-    const trimmedPhone = (phone || "").trim();
-    // Check if the attendee (same name + phone) is already registered for this event
-    const filters = [
-      Query.equal("event_id", eventId),
-      Query.equal("name", name),
-    ];
-    if (trimmedPhone) {
-      filters.push(Query.equal("phone", trimmedPhone));
-    }
-
-    const existing = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_ATTENDEES_COLLECTION_ID,
-      filters
-    );
-
-    if (existing.documents.length > 0) {
-      return false; // already registered
-    }
-
-    await databases.createDocument(
-      APPWRITE_DATABASE_ID,
-      APPWRITE_ATTENDEES_COLLECTION_ID,
-      ID.unique(),
-      {
-        event_id: eventId,
-        name,
-        phone: trimmedPhone,
-      }
-    );
-
-    return true;
-  } catch (error) {
-    console.error("Error adding attendee in Appwrite:", error);
-    throw error;
-  }
+  const data = await api("attendees", "POST", { eventId, name, phone });
+  if (data.duplicated) return false;
+  return true;
 };
