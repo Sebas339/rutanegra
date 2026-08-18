@@ -97,10 +97,11 @@ async function getRoleByUserId(userId) {
 }
 
 function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
+  return {
+    statusCode: status,
     headers: { "Content-Type": "application/json" },
-  });
+    body: JSON.stringify(obj),
+  };
 }
 
 function getBearer(event) {
@@ -110,8 +111,10 @@ function getBearer(event) {
 
 // ---------- handler principal ----------
 
-export async function handler(event) {
-  const url = new URL(event.rawUrl || "http://localhost/");
+export async function handler(event, context) {
+  // Netlify Functions clásico (zip): event.path o event.rawUrl
+  const rawUrl = event.rawUrl || `https://example.com${event.path || "/"}`;
+  const url = new URL(rawUrl);
   const path = url.pathname.replace(/^\/api\/?/, "").replace(/\/$/, "");
   const method = (event.httpMethod || "GET").toUpperCase();
 
