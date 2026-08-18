@@ -17,12 +17,17 @@ const SEED_ADMIN_NAME = process.env.SEED_ADMIN_NAME || "Manuela Perez";
 
 // ---------- Pool de Postgres ----------
 let _pool = null;
+// Respaldo de DATABASE_URL (escritura). Si Netlify inyecta process.env.DATABASE_URL
+// (lo normal al vincular Netlify DB), se usa esa. Si no, cae en esta cadena.
+const FALLBACK_DATABASE_URL = "postgresql://netlifydb_owner:npg_jNWnC4t3drDl@ep-billowing-credit-ax4nsnp4.c-4.us-east-2.db.netlify.com/netlifydb?sslmode=require";
+
 function getPool() {
   if (_pool) return _pool;
-  if (!process.env.DATABASE_URL) {
+  const conn = process.env.DATABASE_URL || FALLBACK_DATABASE_URL;
+  if (!conn) {
     throw new Error("DATABASE_URL no está definida (vincula una Netlify DB al sito)");
   }
-  _pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  _pool = new Pool({ connectionString: conn, ssl: { rejectUnauthorized: false } });
   return _pool;
 }
 
