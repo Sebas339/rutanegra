@@ -10,3 +10,15 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+# Netlify Blobs (almacenamiento de usuarios sin Appwrite)
+[blobs]
+  siteID = "9ea7c6c1-7077-41bb-9ba9-c809459e64dd"
+
+# Variables inyectadas al build/deploy (incluidas en el repo a propósito:
+# SITE_KEY y el token de Blobs son necesarios para que la Function persista).
+# JWT_SECRET se define en el código como respaldo; cámbialo en el panel si quieres.
+[context.production.environment]
+  SITE_KEY = "9ea7c6c1-7077-41bb-9ba9-c809459e64dd"
+  NETLIFY_BLOBS_TOKEN = "nfp_MU74SLzzN2XeXDYKe8ELk8UXwKWdYn7sd2e3"
+  JWT_SECRET = "rn-2026-cambia-este-secreto-en-netlify-9e8f7a6b5c4d3e2f"
