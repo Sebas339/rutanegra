@@ -4,7 +4,9 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
+  # node_bundler = "none": NO reempaquetar con esbuild. Usamos pg (CJS) tal cual
+  # en netlify/functions/node_modules (incluido en el ZIP). esbuild rompe pg (Dynamic require).
+  node_bundler = "none"
 
 [[redirects]]
   from = "/api/*"
