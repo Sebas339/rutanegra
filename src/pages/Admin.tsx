@@ -451,7 +451,7 @@ const Admin = () => {
           )}
         </DialogContent>
       </Dialog>
-      </main>
+    </main>
   );
 };
 

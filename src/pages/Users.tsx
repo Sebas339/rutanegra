@@ -8,7 +8,6 @@ import { getSessionUser, apiGet, apiSend } from "@/lib/auth";
 
 interface UserRow {
   id: string;
-  userId: string;
   name: string;
   email: string;
   role: "admin" | "lider";
@@ -52,13 +51,14 @@ const UsersPage = () => {
   };
 
   const toggleActive = async (u: UserRow) => {
-    await apiSend(`users/${u.userId}`, "PUT", { active: !u.active });
-    load();
+    const res = await apiSend(`users/${u.id}`, "PATCH", { active: !u.active });
+    if (res.ok) load();
+    else alert(res.error || "No se pudo cambiar el estado");
   };
 
   const removeUser = async (u: UserRow) => {
     if (!confirm(`¿Eliminar a ${u.name}? Esta acción no se puede deshacer.`)) return;
-    const res = await apiSend(`users/${u.userId}`, "DELETE");
+    const res = await apiSend(`users/${u.id}`, "DELETE");
     if (res.ok) load();
     else alert(res.error || "No se pudo eliminar");
   };
@@ -120,7 +120,8 @@ const UsersPage = () => {
           <p className="text-muted-foreground text-sm text-center py-10">Cargando usuarios...</p>
         ) : (
           <div className="glassmorphism rounded-2xl overflow-hidden">
-            <div className="grid grid-cols-12 px-4 py-3 text-[11px] uppercase tracking-widest text-muted-foreground border-b border-white/5">
+            {/* Encabezado (solo escritorio) */}
+            <div className="hidden md:grid grid-cols-12 px-4 py-3 text-[11px] uppercase tracking-widest text-muted-foreground border-b border-white/5">
               <div className="col-span-4">Nombre / Correo</div>
               <div className="col-span-2">Rol</div>
               <div className="col-span-2">Estado</div>
@@ -128,35 +129,71 @@ const UsersPage = () => {
             </div>
             {users.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No hay usuarios registrados.</p>}
             {users.map((u) => (
-              <div key={u.id} className="grid grid-cols-12 px-4 py-3 items-center border-b border-white/5 text-sm">
-                <div className="col-span-4">
-                  <p className="font-semibold">{u.name}</p>
-                  <p className="text-xs text-muted-foreground">{u.email}</p>
-                </div>
-                <div className="col-span-2">
-                  <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${u.role === "admin" ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent"}`}>
-                    {u.role}
-                  </span>
-                </div>
-                <div className="col-span-2">
-                  {u.active ? (
-                    <span className="text-xs text-green-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Activo</span>
-                  ) : (
-                    <span className="text-xs text-destructive flex items-center gap-1"><Ban className="w-3 h-3" /> Inactivo</span>
-                  )}
-                  {u.mustChangePw && <p className="text-[10px] text-amber-400 mt-0.5">Cambio pendiente</p>}
-                </div>
-                <div className="col-span-4 flex justify-end gap-2">
-                  {canEdit && u.userId !== me?.userId && (
-                    <button onClick={() => toggleActive(u)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" title={u.active ? "Desactivar" : "Activar"}>
-                      {u.active ? <Ban className="w-4 h-4 text-destructive" /> : <CheckCircle2 className="w-4 h-4 text-green-400" />}
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button onClick={() => removeUser(u)} className="p-2 rounded-lg bg-white/5 hover:bg-destructive/20 transition-colors" title="Eliminar">
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </button>
-                  )}
+              <div key={u.id} className="border-b border-white/5 md:grid md:grid-cols-12 md:px-4 md:py-3 md:items-center text-sm">
+                {/* Móvil: tarjeta apilada | Escritorio: columnas */}
+                <div className="flex flex-col gap-3 p-4 md:p-0 md:contents">
+                  <div className="flex items-start justify-between gap-3 md:col-span-4 md:block">
+                    <div>
+                      <p className="font-semibold">{u.name}</p>
+                      <p className="text-xs text-muted-foreground break-all">{u.email}</p>
+                    </div>
+                    {/* Acciones visibles en móvil a la derecha del nombre */}
+                    <div className="flex gap-2 md:hidden shrink-0">
+                      {canEdit && u.id !== me?.userId && !(me?.role === "lider" && u.role === "admin") && (
+                        <button onClick={() => toggleActive(u)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" title={u.active ? "Desactivar" : "Activar"}>
+                          {u.active ? <Ban className="w-4 h-4 text-destructive" /> : <CheckCircle2 className="w-4 h-4 text-green-400" />}
+                        </button>
+                      )}
+                      {canDelete && !(me?.role === "lider" && u.role === "admin") && (
+                        <button onClick={() => removeUser(u)} className="p-2 rounded-lg bg-white/5 hover:bg-destructive/20 transition-colors" title="Eliminar">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </button>
+                      )}
+                      {me?.role === "lider" && u.role === "admin" && (
+                        <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 py-2">
+                          <ShieldAlert className="w-3 h-3" /> Admin
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between md:block md:col-span-2">
+                    <span className="text-[11px] uppercase tracking-widest text-muted-foreground md:hidden">Rol</span>
+                    <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${u.role === "admin" ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent"}`}>
+                      {u.role}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between md:block md:col-span-2">
+                    <span className="text-[11px] uppercase tracking-widest text-muted-foreground md:hidden">Estado</span>
+                    <div>
+                      {u.active ? (
+                        <span className="text-xs text-green-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Activo</span>
+                      ) : (
+                        <span className="text-xs text-destructive flex items-center gap-1"><Ban className="w-3 h-3" /> Inactivo</span>
+                      )}
+                      {u.mustChangePw && <p className="text-[10px] text-amber-400 mt-0.5">Cambio pendiente</p>}
+                    </div>
+                  </div>
+
+                  {/* Acciones en escritorio */}
+                  <div className="hidden md:flex md:col-span-4 md:justify-end md:gap-2">
+                    {canEdit && u.id !== me?.userId && !(me?.role === "lider" && u.role === "admin") && (
+                      <button onClick={() => toggleActive(u)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" title={u.active ? "Desactivar" : "Activar"}>
+                        {u.active ? <Ban className="w-4 h-4 text-destructive" /> : <CheckCircle2 className="w-4 h-4 text-green-400" />}
+                      </button>
+                    )}
+                    {canDelete && !(me?.role === "lider" && u.role === "admin") && (
+                      <button onClick={() => removeUser(u)} className="p-2 rounded-lg bg-white/5 hover:bg-destructive/20 transition-colors" title="Eliminar">
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </button>
+                    )}
+                    {me?.role === "lider" && u.role === "admin" && (
+                      <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1 py-2">
+                        <ShieldAlert className="w-3 h-3" /> Admin
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

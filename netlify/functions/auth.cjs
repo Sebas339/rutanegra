@@ -7108,7 +7108,25 @@ async function ensureSchema() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_attendees_event ON attendees (event_id);`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS convenios (
+      id UUID PRIMARY KEY,
+      company_name TEXT NOT NULL,
+      address TEXT NOT NULL,
+      city TEXT,
+      phone TEXT NOT NULL,
+      contact_name TEXT NOT NULL,
+      logo TEXT,
+      created_by UUID,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`ALTER TABLE convenios ADD COLUMN IF NOT EXISTS city TEXT;`);
   _schemaReady = true;
+}
+var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(v) {
+  return typeof v === "string" && UUID_RE.test(v);
 }
 function rowToUser(r) {
   return {
@@ -7194,6 +7212,20 @@ async function handler(event) {
       });
       return json({ jwt: token2, userId: user.id, name: user.name, email: user.email, role: user.role, mustChangePw: user.must_change_pw === true });
     }
+    if (path === "convenios" && method === "GET") {
+      const pool = getPool();
+      const { rows } = await pool.query("SELECT id, company_name, address, city, phone, contact_name, logo, created_at FROM convenios ORDER BY company_name ASC");
+      const list = rows.map((c) => ({
+        id: c.id,
+        companyName: c.company_name,
+        address: c.address,
+        city: c.city,
+        phone: c.phone,
+        contactName: c.contact_name,
+        logo: c.logo
+      }));
+      return json({ convenios: list });
+    }
     if (path === "change-password" && method === "POST") {
       const { jwt, newPassword } = bodyObj;
       const me2 = await verifyJWT(jwt);
@@ -7233,25 +7265,38 @@ async function handler(event) {
     }
     if (path.startsWith("users/") && method === "PATCH") {
       const targetId = path.split("/")[1];
+      if (!isUuid(targetId)) return json({ error: "ID de usuario inv\xE1lido" }, 400);
       const { role, active } = bodyObj;
       const pool = getPool();
       const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [targetId]);
       const user = rows[0];
       if (!user) return json({ error: "Usuario no encontrado" }, 404);
+      if (isLider && user.role === "admin") {
+        return json({ error: "Un l\xEDder no puede modificar a un administrador" }, 403);
+      }
       if (isLider && me.sub === targetId && role && role !== "lider") return json({ error: "Un l\xEDder no puede cambiar su propio rol" }, 403);
       if (isLider && role === "admin" && user.role !== "admin") return json({ error: "Un l\xEDder no puede asignar rol admin" }, 403);
+      if (typeof active !== "undefined" && active !== true && user.role === "admin") {
+        const { rows: adm } = await pool.query("SELECT COUNT(*)::int AS n FROM users WHERE role = 'admin' AND active = true");
+        if (adm[0].n <= 1) return json({ error: "No se puede desactivar al \xFAnico administrador activo" }, 403);
+      }
       if (typeof role !== "undefined") await pool.query("UPDATE users SET role = $1 WHERE id = $2", [role, targetId]);
       if (typeof active !== "undefined") await pool.query("UPDATE users SET active = $1 WHERE id = $2", [active, targetId]);
       return json({ ok: true });
     }
     if (path.startsWith("users/") && method === "DELETE") {
       const targetId = path.split("/")[1];
+      if (!isUuid(targetId)) return json({ error: "ID de usuario inv\xE1lido" }, 400);
       const pool = getPool();
       const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [targetId]);
       const user = rows[0];
       if (!user) return json({ error: "Usuario no encontrado" }, 404);
       if (isLider) return json({ error: "Un l\xEDder no puede eliminar usuarios" }, 403);
       if (me.sub === targetId) return json({ error: "No puedes eliminarte a ti mismo" }, 403);
+      if (user.role === "admin") {
+        const { rows: adm } = await pool.query("SELECT COUNT(*)::int AS n FROM users WHERE role = 'admin'");
+        if (adm[0].n <= 1) return json({ error: "No se puede eliminar al \xFAnico administrador" }, 403);
+      }
       await pool.query("DELETE FROM users WHERE id = $1", [targetId]);
       return json({ ok: true });
     }
@@ -7320,6 +7365,60 @@ async function handler(event) {
       if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
       const targetId = path.split("/")[1];
       await getPool().query("DELETE FROM events WHERE id = $1", [targetId]);
+      return json({ ok: true });
+    }
+    if (path === "convenios" && method === "POST") {
+      if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
+      const { companyName, address, city, phone, contactName, logo } = bodyObj;
+      if (!companyName || !address || !phone || !contactName) {
+        return json({ error: "Faltan campos obligatorios (nombre, direcci\xF3n, tel\xE9fono, contacto)" }, 400);
+      }
+      if (logo && typeof logo === "string") {
+        if (!/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/.test(logo)) {
+          return json({ error: "El logo debe ser una imagen v\xE1lida (PNG, JPG, WEBP, GIF o SVG)" }, 400);
+        }
+        if (logo.length > 3e6) {
+          return json({ error: "El logo es demasiado grande (m\xE1x ~2.5 MB)" }, 400);
+        }
+      }
+      const newId = crypto.randomUUID();
+      await getPool().query(
+        `INSERT INTO convenios (id, company_name, address, city, phone, contact_name, logo, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [newId, String(companyName), String(address), city ? String(city) : null, String(phone), String(contactName), logo || null, me.sub]
+      );
+      return json({ ok: true, id: newId }, 201);
+    }
+    if (path.startsWith("convenios/") && method === "PATCH") {
+      if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
+      const targetId = path.split("/")[1];
+      if (!isUuid(targetId)) return json({ error: "ID de convenio inv\xE1lido" }, 400);
+      const { companyName, address, city, phone, contactName, logo } = bodyObj;
+      const pool = getPool();
+      const { rows } = await pool.query("SELECT id FROM convenios WHERE id = $1", [targetId]);
+      if (!rows[0]) return json({ error: "Convenio no encontrado" }, 404);
+      if (!companyName || !address || !phone || !contactName) {
+        return json({ error: "Faltan campos obligatorios (nombre, direcci\xF3n, tel\xE9fono, contacto)" }, 400);
+      }
+      if (logo && typeof logo === "string") {
+        if (!/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/.test(logo)) {
+          return json({ error: "El logo debe ser una imagen v\xE1lida (PNG, JPG, WEBP, GIF o SVG)" }, 400);
+        }
+        if (logo.length > 3e6) {
+          return json({ error: "El logo es demasiado grande (m\xE1x ~2.5 MB)" }, 400);
+        }
+      }
+      await pool.query(
+        `UPDATE convenios SET company_name = $1, address = $2, city = $3, phone = $4, contact_name = $5, logo = $6 WHERE id = $7`,
+        [String(companyName), String(address), city ? String(city) : null, String(phone), String(contactName), logo || null, targetId]
+      );
+      return json({ ok: true });
+    }
+    if (path.startsWith("convenios/") && method === "DELETE") {
+      if (!isAdmin && !isLider) return json({ error: "Sin permiso" }, 403);
+      const targetId = path.split("/")[1];
+      if (!isUuid(targetId)) return json({ error: "ID de convenio inv\xE1lido" }, 400);
+      await getPool().query("DELETE FROM convenios WHERE id = $1", [targetId]);
       return json({ ok: true });
     }
     if (path === "attendees" && method === "POST") {

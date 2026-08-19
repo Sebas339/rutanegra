@@ -1,26 +1,45 @@
-# Event Hub
+# Ruta Negra Manizales
 
-necesito una pagina principal que muestre futuros eventos que se van a ir registrando y un formulario para dicho registro y usa este logo
+Plataforma web para **Ruta Negra Manizales**: muestra rutas/eventos próximos, convenios con empresas aliadas y un panel de administración (usuarios, estadísticas y convenios).
 
-This project was built with [Lovable](https://lovable.dev).
+**Live app**: https://rutanegra.netlify.app
 
-**Live app**: https://rutanegra.lovable.app
+## Stack
 
-## Build with Lovable
+- **Frontend**: React + Vite + TypeScript (estética oscura, minimalista).
+- **Backend**: Netlify Functions (`netlify/functions/auth.mjs`, empaquetado en `auth.cjs`).
+- **Base de datos**: PostgreSQL (Netlify Postgres).
+- **Rutas protegidas** con JWT (login en `/login`, panel en `/admin/*`).
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/46f0abcb-f237-4895-b366-eca33196abfc).
+## Estructura
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+- `src/pages/Index.tsx` — Home (rutas/eventos + footer redes).
+- `src/pages/ConveniosPublic.tsx` — Página pública de convenios (filtro y agrupación por ciudad).
+- `src/pages/Convenios.tsx` — Panel admin: crear / editar / eliminar convenios (campo `ciudad` separado de dirección).
+- `src/pages/Users.tsx` — Gestión de usuarios (el líder no puede desactivar/eliminar admins).
+- `src/components/Navbar.tsx` — Navegación pública (`Inicio | Acceso`, `Convenios | Acceso`) y admin.
+- `src/components/Footer.tsx` — Iconos de Instagram y TikTok.
+- `netlify/functions/auth.mjs` — API: auth, usuarios, estadísticas y convenios.
 
-## Development
+## Desarrollo local
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Necesitas Node.js y npm.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Despliegue
+
+El build del frontend se genera con:
+
+```sh
+node build-function.mjs   # regenera netlify/functions/auth.cjs
+npm run build             # compila el frontend a dist/
+node make-zip.mjs         # empaqueta dist/ + auth.cjs en rutanegra-deploy.zip
+```
+
+Sube `rutanegra-deploy.zip` manualmente en Netlify (Site settings → Deploys → Deploy manually).
+
+> Variables de entorno requeridas en Netlify: `DATABASE_URL`, `JWT_SECRET` y `FALLBACK_DATABASE_URL`.

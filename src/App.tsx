@@ -10,6 +10,8 @@ import Index from "./pages/Index.tsx";
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const Stats = lazy(() => import("./pages/Stats.tsx"));
 const UsersPage = lazy(() => import("./pages/Users.tsx"));
+const Convenios = lazy(() => import("./pages/Convenios.tsx"));
+const ConveniosPublic = lazy(() => import("./pages/ConveniosPublic.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 const FirstLogin = lazy(() => import("./pages/FirstLogin.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -37,6 +39,8 @@ const App = () => (
             <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
             <Route path="/admin/estadisticas" element={<RequireAuth><Stats /></RequireAuth>} />
             <Route path="/admin/usuarios" element={<RequireAuth><UsersPage /></RequireAuth>} />
+            <Route path="/admin/convenios" element={<RequireAuth><Convenios /></RequireAuth>} />
+            <Route path="/convenios" element={<ConveniosPublic />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
