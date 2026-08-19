@@ -961,9 +961,9 @@ var require_pg_types = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/defaults.js
+// node_modules/pg/lib/defaults.js
 var require_defaults = __commonJS({
-  "netlify/functions/node_modules/pg/lib/defaults.js"(exports2, module2) {
+  "node_modules/pg/lib/defaults.js"(exports2, module2) {
     "use strict";
     var user;
     try {
@@ -1030,9 +1030,9 @@ var require_defaults = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/utils.js
+// node_modules/pg/lib/utils.js
 var require_utils = __commonJS({
-  "netlify/functions/node_modules/pg/lib/utils.js"(exports2, module2) {
+  "node_modules/pg/lib/utils.js"(exports2, module2) {
     "use strict";
     var defaults2 = require_defaults();
     var { isDate } = require("util/types");
@@ -1178,9 +1178,9 @@ var require_utils = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/crypto/utils.js
+// node_modules/pg/lib/crypto/utils.js
 var require_utils2 = __commonJS({
-  "netlify/functions/node_modules/pg/lib/crypto/utils.js"(exports2, module2) {
+  "node_modules/pg/lib/crypto/utils.js"(exports2, module2) {
     var nodeCrypto2 = require("crypto");
     module2.exports = {
       postgresMd5PasswordHash,
@@ -1229,9 +1229,9 @@ var require_utils2 = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/crypto/cert-signatures.js
+// node_modules/pg/lib/crypto/cert-signatures.js
 var require_cert_signatures = __commonJS({
-  "netlify/functions/node_modules/pg/lib/crypto/cert-signatures.js"(exports2, module2) {
+  "node_modules/pg/lib/crypto/cert-signatures.js"(exports2, module2) {
     function x509Error(msg, cert) {
       return new Error("SASL channel binding: " + msg + " when parsing public certificate " + cert.toString("base64"));
     }
@@ -1336,9 +1336,9 @@ var require_cert_signatures = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/crypto/sasl.js
+// node_modules/pg/lib/crypto/sasl.js
 var require_sasl = __commonJS({
-  "netlify/functions/node_modules/pg/lib/crypto/sasl.js"(exports2, module2) {
+  "node_modules/pg/lib/crypto/sasl.js"(exports2, module2) {
     "use strict";
     var crypto2 = require_utils2();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
@@ -1521,9 +1521,9 @@ var require_sasl = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/type-overrides.js
+// node_modules/pg/lib/type-overrides.js
 var require_type_overrides = __commonJS({
-  "netlify/functions/node_modules/pg/lib/type-overrides.js"(exports2, module2) {
+  "node_modules/pg/lib/type-overrides.js"(exports2, module2) {
     "use strict";
     var types2 = require_pg_types();
     function TypeOverrides2(userTypes) {
@@ -1556,9 +1556,9 @@ var require_type_overrides = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-connection-string/index.js
+// node_modules/pg-connection-string/index.js
 var require_pg_connection_string = __commonJS({
-  "netlify/functions/node_modules/pg-connection-string/index.js"(exports2, module2) {
+  "node_modules/pg-connection-string/index.js"(exports2, module2) {
     "use strict";
     function parse(str, options = {}) {
       if (str.charAt(0) === "/") {
@@ -1744,9 +1744,9 @@ See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode de
   }
 });
 
-// netlify/functions/node_modules/pg/lib/connection-parameters.js
+// node_modules/pg/lib/connection-parameters.js
 var require_connection_parameters = __commonJS({
-  "netlify/functions/node_modules/pg/lib/connection-parameters.js"(exports2, module2) {
+  "node_modules/pg/lib/connection-parameters.js"(exports2, module2) {
     "use strict";
     var dns = require("dns");
     var defaults2 = require_defaults();
@@ -1895,9 +1895,9 @@ var require_connection_parameters = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/result.js
+// node_modules/pg/lib/result.js
 var require_result = __commonJS({
-  "netlify/functions/node_modules/pg/lib/result.js"(exports2, module2) {
+  "node_modules/pg/lib/result.js"(exports2, module2) {
     "use strict";
     var types2 = require_pg_types();
     var matchRegexp = /^([A-Za-z]+)(?: (\d+))?(?: (\d+))?/;
@@ -1986,9 +1986,9 @@ var require_result = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/query.js
+// node_modules/pg/lib/query.js
 var require_query = __commonJS({
-  "netlify/functions/node_modules/pg/lib/query.js"(exports2, module2) {
+  "node_modules/pg/lib/query.js"(exports2, module2) {
     "use strict";
     var { EventEmitter } = require("events");
     var Result2 = require_result();
@@ -2188,9 +2188,9 @@ var require_query = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-protocol/dist/messages.js
+// node_modules/pg-protocol/dist/messages.js
 var require_messages = __commonJS({
-  "netlify/functions/node_modules/pg-protocol/dist/messages.js"(exports2) {
+  "node_modules/pg-protocol/dist/messages.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.NoticeMessage = exports2.DataRowMessage = exports2.CommandCompleteMessage = exports2.ReadyForQueryMessage = exports2.NotificationResponseMessage = exports2.BackendKeyDataMessage = exports2.AuthenticationMD5Password = exports2.ParameterStatusMessage = exports2.ParameterDescriptionMessage = exports2.RowDescriptionMessage = exports2.Field = exports2.CopyResponse = exports2.CopyDataMessage = exports2.DatabaseError = exports2.copyDone = exports2.emptyQuery = exports2.replicationStart = exports2.portalSuspended = exports2.noData = exports2.closeComplete = exports2.bindComplete = exports2.parseComplete = void 0;
@@ -2353,9 +2353,9 @@ var require_messages = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-protocol/dist/buffer-writer.js
+// node_modules/pg-protocol/dist/buffer-writer.js
 var require_buffer_writer = __commonJS({
-  "netlify/functions/node_modules/pg-protocol/dist/buffer-writer.js"(exports2) {
+  "node_modules/pg-protocol/dist/buffer-writer.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Writer = void 0;
@@ -2457,9 +2457,9 @@ var require_buffer_writer = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-protocol/dist/serializer.js
+// node_modules/pg-protocol/dist/serializer.js
 var require_serializer = __commonJS({
-  "netlify/functions/node_modules/pg-protocol/dist/serializer.js"(exports2) {
+  "node_modules/pg-protocol/dist/serializer.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.serialize = void 0;
@@ -2679,9 +2679,9 @@ var require_serializer = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-protocol/dist/buffer-reader.js
+// node_modules/pg-protocol/dist/buffer-reader.js
 var require_buffer_reader = __commonJS({
-  "netlify/functions/node_modules/pg-protocol/dist/buffer-reader.js"(exports2) {
+  "node_modules/pg-protocol/dist/buffer-reader.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.BufferReader = void 0;
@@ -2738,9 +2738,9 @@ var require_buffer_reader = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-protocol/dist/parser.js
+// node_modules/pg-protocol/dist/parser.js
 var require_parser = __commonJS({
-  "netlify/functions/node_modules/pg-protocol/dist/parser.js"(exports2) {
+  "node_modules/pg-protocol/dist/parser.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Parser = void 0;
@@ -3045,9 +3045,9 @@ var require_parser = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-protocol/dist/index.js
+// node_modules/pg-protocol/dist/index.js
 var require_dist = __commonJS({
-  "netlify/functions/node_modules/pg-protocol/dist/index.js"(exports2) {
+  "node_modules/pg-protocol/dist/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.DatabaseError = exports2.serialize = void 0;
@@ -3078,9 +3078,9 @@ var require_empty = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/stream.js
+// node_modules/pg/lib/stream.js
 var require_stream = __commonJS({
-  "netlify/functions/node_modules/pg/lib/stream.js"(exports2, module2) {
+  "node_modules/pg/lib/stream.js"(exports2, module2) {
     var { getStream, getSecureStream } = getStreamFuncs();
     module2.exports = {
       /**
@@ -3144,9 +3144,9 @@ var require_stream = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/connection.js
+// node_modules/pg/lib/connection.js
 var require_connection = __commonJS({
-  "netlify/functions/node_modules/pg/lib/connection.js"(exports2, module2) {
+  "node_modules/pg/lib/connection.js"(exports2, module2) {
     "use strict";
     var EventEmitter = require("events").EventEmitter;
     var { parse, serialize } = require_dist();
@@ -3342,9 +3342,9 @@ var require_connection = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pgpass/node_modules/split2/index.js
+// node_modules/pgpass/node_modules/split2/index.js
 var require_split2 = __commonJS({
-  "netlify/functions/node_modules/pgpass/node_modules/split2/index.js"(exports2, module2) {
+  "node_modules/pgpass/node_modules/split2/index.js"(exports2, module2) {
     "use strict";
     var { Transform } = require("stream");
     var { StringDecoder } = require("string_decoder");
@@ -3443,9 +3443,9 @@ var require_split2 = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pgpass/lib/helper.js
+// node_modules/pgpass/lib/helper.js
 var require_helper = __commonJS({
-  "netlify/functions/node_modules/pgpass/lib/helper.js"(exports2, module2) {
+  "node_modules/pgpass/lib/helper.js"(exports2, module2) {
     "use strict";
     var path = require("path");
     var Stream = require("stream").Stream;
@@ -3614,9 +3614,9 @@ var require_helper = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pgpass/lib/index.js
+// node_modules/pgpass/lib/index.js
 var require_lib = __commonJS({
-  "netlify/functions/node_modules/pgpass/lib/index.js"(exports2, module2) {
+  "node_modules/pgpass/lib/index.js"(exports2, module2) {
     "use strict";
     var path = require("path");
     var fs = require("fs");
@@ -3635,9 +3635,9 @@ var require_lib = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/client.js
+// node_modules/pg/lib/client.js
 var require_client = __commonJS({
-  "netlify/functions/node_modules/pg/lib/client.js"(exports2, module2) {
+  "node_modules/pg/lib/client.js"(exports2, module2) {
     var EventEmitter = require("events").EventEmitter;
     var utils = require_utils();
     var nodeUtils = require("util");
@@ -4323,9 +4323,9 @@ var require_client = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg-pool/index.js
+// node_modules/pg-pool/index.js
 var require_pg_pool = __commonJS({
-  "netlify/functions/node_modules/pg-pool/index.js"(exports2, module2) {
+  "node_modules/pg-pool/index.js"(exports2, module2) {
     "use strict";
     var EventEmitter = require("events").EventEmitter;
     var NOOP = function() {
@@ -4749,9 +4749,9 @@ var require_pg_pool = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/native/query.js
+// node_modules/pg/lib/native/query.js
 var require_query2 = __commonJS({
-  "netlify/functions/node_modules/pg/lib/native/query.js"(exports2, module2) {
+  "node_modules/pg/lib/native/query.js"(exports2, module2) {
     "use strict";
     var EventEmitter = require("events").EventEmitter;
     var util = require("util");
@@ -4890,9 +4890,9 @@ var require_query2 = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/native/client.js
+// node_modules/pg/lib/native/client.js
 var require_client2 = __commonJS({
-  "netlify/functions/node_modules/pg/lib/native/client.js"(exports2, module2) {
+  "node_modules/pg/lib/native/client.js"(exports2, module2) {
     var nodeUtils = require("util");
     var Native;
     try {
@@ -5224,17 +5224,17 @@ var require_client2 = __commonJS({
   }
 });
 
-// netlify/functions/node_modules/pg/lib/native/index.js
+// node_modules/pg/lib/native/index.js
 var require_native = __commonJS({
-  "netlify/functions/node_modules/pg/lib/native/index.js"(exports2, module2) {
+  "node_modules/pg/lib/native/index.js"(exports2, module2) {
     "use strict";
     module2.exports = require_client2();
   }
 });
 
-// netlify/functions/node_modules/pg/lib/index.js
+// node_modules/pg/lib/index.js
 var require_lib2 = __commonJS({
-  "netlify/functions/node_modules/pg/lib/index.js"(exports2, module2) {
+  "node_modules/pg/lib/index.js"(exports2, module2) {
     "use strict";
     var Client2 = require_client();
     var defaults2 = require_defaults();
@@ -5298,14 +5298,14 @@ var require_lib2 = __commonJS({
   }
 });
 
-// netlify/functions/auth.mjs
+// netlify/functions-src/auth.mjs
 var auth_exports = {};
 __export(auth_exports, {
   handler: () => handler
 });
 module.exports = __toCommonJS(auth_exports);
 
-// netlify/functions/node_modules/pg/esm/index.mjs
+// node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib2(), 1);
 var Client = import_lib.default.Client;
 var Pool = import_lib.default.Pool;
@@ -7042,7 +7042,7 @@ var bcryptjs_default = {
   decodeBase64
 };
 
-// netlify/functions/auth.mjs
+// netlify/functions-src/auth.mjs
 var JWT_SECRET = process.env.JWT_SECRET || "cambia-este-secreto-en-netlify-2026";
 var SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "laschicasenmotomanizales@gmail.com";
 var SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "Enlajuega1.";

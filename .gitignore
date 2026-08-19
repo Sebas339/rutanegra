@@ -35,3 +35,6 @@ VI-22.0.0_GA.VMW-411.zip
 
 # ZIP de deploy manual (grande, no versionar)
 rutanegra.zip
+
+# Netlify function bundled deps (auth.cjs ya trae pg inline)
+netlify/functions/node_modules

@@ -7,7 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const entry = path.join(__dirname, "netlify/functions/auth.mjs");
+const entry = path.join(__dirname, "netlify/functions-src/auth.mjs");
 const out = path.join(__dirname, "netlify/functions/auth.cjs");
 
 await build({
